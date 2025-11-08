@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Popik666 Pong / Arkanoid v1.6</title>
+<style>
+  :root{
+    --bg1:#0b0f12; --bg2:#14080a; --neon:#ff2d55; --accent:#ff0066; --muted: rgba(255,255,255,0.04);
+    --menu-padding-vertical: 1cm; /* viz zadání - zmenšit o 1cm nahoře/dole (přizpůsobeno layoutu) */
+  }
+  html,body{height:100%; margin:0; padding:0; background: radial-gradient(circle at center, var(--bg1), var(--bg2)); font-family: "Segoe UI", Roboto, Arial; color:var(--neon); -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color: transparent;}
+  /* Intro */
+  #intro{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:9999; background: linear-gradient(180deg, rgba(11,15,18,0.98), rgba(20,8,10,0.9)); flex-direction:column; }
+  #intro h1{ font-size:36px; margin:0; color:var(--accent); text-shadow:0 0 18px rgba(255,0,102,0.14); animation:floatIn 0.9s ease;}
+  #intro p{ color:var(--neon); opacity:0.9; margin-top:10px; font-size:14px;}
+  @keyframes floatIn { from { transform: translateY(20px) scale(.98); opacity:0 } to { transform: translateY(0) scale(1); opacity:1 } }
+  /* Menu */
+#menuScreen{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:900; padding:12px 18px; box-sizing:border-box; }
+.menuInner{ width:100%; max-width:980px; text-align:center; padding:10px; box-sizing:border-box; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02)); border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.6); }
+.title{ font-size:26px; color:var(--accent); margin:4px 0 8px; text-shadow:0 0 10px rgba(255,0,102,0.12); }
+.subtitle{ color:var(--neon); opacity:0.85; margin:0 0 14px; font-size:14px; }
+#modeGrid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:12px; padding:6px; margin-bottom:12px; }
+.modeBox{ background: rgba(255,45,85,0.03); border:1px solid rgba(255,45,85,0.08); padding:12px; border-radius:10px; cursor:pointer; transition: all 0.14s; text-align:left; display:flex; flex-direction:column; }
+.modeBox:hover{ transform:translateY(-4px); box-shadow:0 8px 30px rgba(0,0,0,0.45); border-color:var(--neon); background: rgba(255,45,85,0.06); }
+.modeBox.checked{ box-shadow: 0 12px 40px rgba(255,45,85,0.06); border-color:var(--accent); background: rgba(255,0,102,0.06); }
+.modeTitle{ font-weight:700; color:#fff; margin-bottom:4px; font-size:15px; }
+.modeDesc{ font-size:13px; opacity:0.85; color:#ffd6e6; }
+
+/* difficulty toggle area */
+.difficultyRow { display:flex; gap:8px; align-items:center; justify-content:center; margin-top:8px; }
+.diffBtn { padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); cursor:pointer; background:transparent; color:var(--neon); font-weight:700; }
+.diffBtn.active { background:linear-gradient(90deg,var(--neon),var(--accent)); color:#fff; box-shadow:0 8px 26px rgba(255,0,102,0.12); transform:translateY(-2px); }
+
+#startBtn{ margin-top:6px; background:linear-gradient(90deg,var(--neon),var(--accent)); color:#100; border:none; padding:10px 18px; border-radius:10px; cursor:pointer; font-weight:800; font-size:16px; box-shadow:0 6px 20px rgba(0,0,0,0.6); }
+#startBtn:hover{ transform:translateY(-3px); }
+
+/* Update icon */
+#updateBtn { position:fixed; right:12px; bottom:12px; z-index:1001; background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:var(--neon); padding:8px 10px; border-radius:10px; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,0.5); }
+#versionTag{ position:fixed; left:12px; bottom:14px; color:rgba(255,255,255,0.6); font-size:13px; z-index:1001; }
+
+/* Canvas + HUD */
+#gameCanvas{ display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:100; background:transparent; }
+#hud{ display:none; position:fixed; left:12px; top:12px; z-index:200; font-weight:700; color:var(--neon); text-shadow:0 0 10px rgba(255,45,85,0.1); }
+#hudRight{ display:none; position:fixed; right:12px; top:12px; z-index:200; color:var(--neon); font-weight:700; }
+.smallBadge{ font-size:13px; background:rgba(0,0,0,0.25); padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.03); }
+
+/* --- NOVÝ STYL: LIŠTA OVLÁDÁNÍ (pro mobilní tlačítka) --- */
+#gameControls{ 
+    display:none; /* Skryto dokud hra neběží */
+    position:fixed; 
+    bottom:0; 
+    left:0; 
+    width:100%; 
+    z-index:1000; 
+    padding:10px 12px; 
+    box-sizing:border-box; 
+    background:rgba(0,0,0,0.6); /* Tmavé pozadí pro lepší kontrast */
+    display:flex; 
+    justify-content:center; 
+    gap:12px; 
+}
+.controlBtn{ 
+    padding:10px 20px; 
+    border-radius:10px; 
+    border:none; 
+    font-weight:700; 
+    font-size:16px; 
+    cursor:pointer; 
+    transition: all 0.1s; 
+    flex-grow:1; 
+    max-width:200px; 
+    text-align:center;
+}
+#btnPause{ 
+    background:var(--neon); 
+    color:#100; 
+    box-shadow:0 4px 12px rgba(255,45,85,0.4); 
+}
+#btnExit{ 
+    background:rgba(255,255,255,0.1); 
+    color:#fff; 
+    border:1px solid rgba(255,255,255,0.2);
+}
+#btnPause.paused{ 
+    background: #55ff55; /* Zelená, když se dá pokračovat */
+    color: #100;
+}
+/* --- KONEC NOVÉHO STYLU --- */
+
+
+.footerNote{ font-size:12px; color:rgba(255,255,255,0.5); margin-top:8px; }
+
+@media (max-width:520px){
+.title{font-size:20px;}
+#modeGrid{ gap:8px; }
+.modeBox{ padding:10px; }
+#startBtn{ padding:9px 14px; }
+#updateBtn{ padding:8px; }
+/* ZMĚNA: Zvýšeno z 30px na 120px, aby se uvolnilo místo pro spodní ovládací lištu */
+#menuScreen{
+    padding: 12px 12px 120px 12px; 
+}
+#gameCanvas{
+    padding: 12px 12px 120px 12px; 
+    box-sizing: border-box; 
+}
+}
+</style>
+</head>
+<body>
+<div id="intro" aria-hidden="true">
+  <h1>Popik666 Games</h1>
+  <p>Popik666 Pong / Arkanoid Edition</p>
+</div>
+<div id="menuScreen">
+  <div class="menuInner" role="menu" style="padding:10px;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div style="text-align:left;">
+        <div class="title">Popik666 Pong / Arkanoid</div>
+        <div class="subtitle">Vyber mód — každá hra má Easy / Hard (uloženo pro vybraný mód)</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:13px; color:#ffd6e6; opacity:0.95;">v1.6</div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.45);">Offline ready</div>
+      </div>
+    </div>
+    <div id="modeGrid">
+      <label class="modeBox" data-mode="1"><input type="radio" name="mode" value="1" style="display:none;">
+        <div class="modeTitle">1. Arkanoid – Cihličky + Překážky</div>
+        <div class="modeDesc">Klasický Arkanoid s pevnými kosočtverci/trojúhelníky (některé rozbíjitelné).</div>
+      </label>
+
+      <label class="modeBox" data-mode="2"><input type="radio" name="mode" value="2" style="display:none;">
+        <div class="modeTitle">2. Pong Duel (2 hráči)</div>
+        <div class="modeDesc">Horní vs dolní pálka. První na 5 bodů vyhrává.</div>
+      </label>
+
+      <label class="modeBox" data-mode="3"><input type="radio" name="mode" value="3" style="display:none;">
+        <div class="modeTitle">3. Bonus – Power-upy</div>
+        <div class="modeDesc">Sbírej power-upy: +life, širší pálka, multiball, zpomalení.</div>
+      </label>
+
+      <label class="modeBox checked" data-mode="4"><input type="radio" name="mode" value="4" style="display:none;" checked>
+        <div class="modeTitle">4. Překážky (Nové: Násobení počtu)</div>
+        <div class="modeDesc">Pevné kosočtverce/trojuhelníky; některé rozbijitelné. Po vyčištění se násobí jejich počet!</div>
+      </label>
+
+      <label class="modeBox" data-mode="5"><input type="radio" name="mode" value="5" style="display:none;">
+        <div class="modeTitle">5. Chaos (Multiball)</div>
+        <div class="modeDesc">Začni se třemi míčky, přibývají další – udrž co nejdéle.</div>
+      </label>
+
+      <label class="modeBox" data-mode="6"><input type="radio" name="mode" value="6" style="display:none;">
+        <div class="modeTitle">6. Survival</div>
+        <div class="modeDesc">Nekonečný mód: každá vlna zvýší rychlost, hraj dokud máš životy.</div>
+      </label>
+
+      <label class="modeBox" data-mode="7"><input type="radio" name="mode" value="7" style="display:none;">
+        <div class="modeTitle">7. Arkanoid Classic</div>
+        <div class="modeDesc">Čistý Arkanoid – žádné překážky, jen cihličky a pálka.</div>
+      </label>
+    </div>
+
+    <div class="difficultyRow">
+      <div style="font-size:13px; color:rgba(255,255,255,0.7); margin-right:8px;">Obtížnost pro vybraný mód:</div>
+      <button id="diffEasy" class="diffBtn active">EASY</button>
+      <button id="diffHard" class="diffBtn">HARD</button>
+    </div>
+
+    <div style="display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top:10px;">
+      <button id="startBtn">START</button>
+      <div class="footerNote">Tip: dotyk pro kontrolu pálky | Klávesy: A/D dolní, J/L horní (2P)</div>
+    </div>
+
+    <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="color:rgba(255,255,255,0.5); font-size:13px;">Popik666 Pong / Arkanoid Edition v1.6</div>
+      <div style="color:rgba(255,255,255,0.45); font-size:12px;">© 2025</div>
+    </div>
+
+  </div>
+</div>
+<button id="updateBtn" title="Obnovit / Update (smaže uložená nastavení)">⚙️ Obnovit</button>
+
+<div id="versionTag">verze 1.6</div>
+<canvas id="gameCanvas"></canvas>
+
+<div id="gameControls">
+    <button id="btnPause" class="controlBtn">PAUZA</button>
+    <button id="btnExit" class="controlBtn">UKONČIT</button>
+</div>
+<div id="hud" class="smallBadge"></div>
+<div id="hudRight" class="smallBadge"></div>
+<script>
+/* Popik666 v1.6 — single-file game with 7 modes + per-mode difficulty (Easy/Hard) + update */
+(() => {
+  // CONFIG
+  const GAME_VERSION = "1.6";
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  const intro = document.getElementById('intro');
+  const menuScreen = document.getElementById('menuScreen');
+  const modeBoxes = document.querySelectorAll('.modeBox');
+  const startBtn = document.getElementById('startBtn');
+  const updateBtn = document.getElementById('updateBtn');
+  const diffEasyBtn = document.getElementById('diffEasy');
+  const diffHardBtn = document.getElementById('diffHard');
+  const hud = document.getElementById('hud');
+  const hudRight = document.getElementById('hudRight');
+
+  // *** NOVÉ: Deklarace lišty ovládání ***
+  const gameControls = document.getElementById('gameControls');
+  const btnPause = document.getElementById('btnPause');
+  const btnExit = document.getElementById('btnExit');
+  // *** KONEC NOVÉ DEKLARACE ***
+
+  // VERSION / UPDATE SYSTEM
+  function versionCheck() {
+    const storedVer = localStorage.getItem('popik_version');
+    if (storedVer !== GAME_VERSION) {
+      // preserve nothing to avoid incompatibility
+      localStorage.clear();
+      localStorage.setItem('popik_version', GAME_VERSION);
+      if (storedVer !== null) {
+        setTimeout(()=> alert('Hra byla aktualizována na verzi ' + GAME_VERSION), 700);
+      }
+    }
+  }
+  updateBtn.addEventListener('click', ()=>{
+    if (!confirm('Opravdu obnovit hru a vyčistit uložená nastavení?')) return;
+    localStorage.clear();
+    localStorage.setItem('popik_version', GAME_VERSION);
+    alert('Hra obnovena. Stránka se načte znovu.');
+    location.reload();
+  });
+
+  // INTRO hide after 2s
+  setTimeout(()=> { intro.style.display = 'none'; }, 2000);
+
+  // GAME VARIABLES
+  let width = window.innerWidth;
+  let height = window.innerHeight;
+  let scale = 1;
+
+  const PADDLE_BASE_W = 150;
+  const PADDLE_H = 14;
+  const BALL_R = 10;
+  const CORNER_TRI = 30;
+  const DIAMOND_BASE = 30;
+  const BRICK_COLS = 10;
+  const BRICK_ROWS_BASE = 5;
+  const MAX_WAVE_WITH_INITIAL_SETUP = 10; // Omezení vln pro módy s počátečním setupem
+  let initialDiamondCount = 0; // Proměnná pro Mód 4
+  
+  // *** NOVÉ PRO BONUSY ***
+  let shieldActive = false;
+  let shieldTimer = 0;
+  const SHIELD_DURATION = 10000; // 10 sekund
+  // *** Konec NOVÉ PRO BONUSY ***
+
+  let selectedMode = 4; // Změna defaultu pro testování úpravy
+  let difficulty = 'easy'; // 'easy' or 'hard' — per-mode saved
+  let gameRunning = false;
+  let isSinglePlayer = true;
+  let gamePaused = false; // *** NOVÁ STAVOVÁ PROMĚNNÁ ***
+
+  let paddleTop = { x:0, y:0, w:PADDLE_BASE_W, h:PADDLE_H, score:0, lives:3, visible:true, color:'#ff4b75' };
+  let paddleBottom = { x:0, y:0, w:PADDLE_BASE_W, h:PADDLE_H, score:0, lives:3, color:'#ff2d55' };
+
+  let balls = [];
+  let diamonds = [];
+  let bricks = [];
+  let powerups = [];
+  let particles = []; // Pole pro částice
+  let wave = 1;
+  let highScore = Number(localStorage.getItem('popik_highscore') || 0);
+
+  // input
+  const keys = {};
+  window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+  // RESIZE
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    scale = Math.min(width / 640, height / 900);
+    paddleTop.w = PADDLE_BASE_W * scale;
+    paddleTop.h = PADDLE_H * Math.max(0.7, scale);
+    paddleBottom.w = PADDLE_BASE_W * scale;
+    paddleBottom.h = PADDLE_H * Math.max(0.7, scale);
+    paddleTop.x = width/2 - paddleTop.w/2;
+    paddleTop.y = 10 * scale;
+    paddleBottom.x = width/2 - paddleBottom.w/2;
+    paddleBottom.y = height - paddleBottom.h - (12 * scale);
+  }
+  window.addEventListener('resize', resize);
+
+  // DIFFICULTY PER-MODE helpers
+  function getStoredDifficulty(mode) {
+    const key = 'popik_diff_mode_' + mode;
+    return localStorage.getItem(key) || 'easy';
+  }
+  function setStoredDifficulty(mode, diff) {
+    const key = 'popik_diff_mode_' + mode;
+    localStorage.setItem(key, diff);
+  }
+  // toggle UI
+  function applyDifficultyToUI(diff) {
+    difficulty = diff;
+    if (diff === 'easy') {
+      diffEasyBtn.classList.add('active');
+      diffHardBtn.classList.remove('active');
+    } else {
+      diffHardBtn.classList.add('active');
+      diffEasyBtn.classList.remove('active');
+    }
+  }
+
+  diffEasyBtn.addEventListener('click', ()=>{
+    const checked = document.querySelector('input[name="mode"]:checked');
+    const mode = checked ? Number(checked.value) : 1;
+    applyDifficultyToUI('easy');
+    setStoredDifficulty(mode, 'easy');
+  });
+  diffHardBtn.addEventListener('click', ()=>{
+    const checked = document.querySelector('input[name="mode"]:checked');
+    const mode = checked ? Number(checked.value) : 1;
+    applyDifficultyToUI('hard');
+    setStoredDifficulty(mode, 'hard');
+  });
+
+  // when mode selection changes, load difficulty for that mode
+  function onModeSelected(mode) {
+    selectedMode = mode;
+    // UI highlight
+    modeBoxes.forEach(b => b.classList.remove('checked'));
+    const box = Array.from(modeBoxes).find(x => Number(x.dataset.mode) === mode);
+    if (box) box.classList.add('checked');
+    // load stored difficulty for this mode (per requirement)
+    const diff = getStoredDifficulty(mode);
+    applyDifficultyToUI(diff);
+  }
+  modeBoxes.forEach(box=>{
+    box.addEventListener('click', ()=>{
+      const m = Number(box.dataset.mode);
+      onModeSelected(m);
+    });
+  });
+  // initialize UI with selected 4
+  onModeSelected(4);
+
+  // UTILITIES
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+  function playSound(freq, t=0.05) {
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(); const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.frequency.value = freq; o.type = 'sine'; g.gain.value = 0.12;
+      o.start(); o.stop(ac.currentTime + t);
+    } catch(e){}
+  }
+
+  // PARTICLE factory
+  function createParticle(x,y,color,count=5,speedMult=1) {
+      for(let i=0; i<count; i++) {
+          const angle = rand(0, Math.PI * 2);
+          const vel = rand(1, 3) * scale * speedMult;
+          particles.push({
+              x: x, y: y,
+              vx: Math.cos(angle) * vel,
+              vy: Math.sin(angle) * vel,
+              color: color,
+              radius: rand(1*scale, 3*scale),
+              life: 1, // 100% life
+              decay: rand(0.01, 0.05) // rate of decay
+          });
+      }
+  }
+
+  // BALL factory
+  function createBall(x,y,dx,dy){
+    return {
+        x,y,dx,dy,r:BALL_R*scale,
+        color:'#fff',
+        baseDx:dx/scale,
+        baseDy:dy/scale,
+        // *** Nový flag pro Fireball ***
+        isFireball: false
+    };
+  }
+
+  // difficulty modifiers
+  function difficultySettings(mode, diff) {
+    // returns object { speedMult, paddleMult, lives }
+    // apply to all modes if requested — we do so
+    const isEasy = (diff === 'easy');
+    if (isEasy) return { speedMult: 0.85, paddleMult: 1.3, lives: (mode === 2 ? 3 : 5) }; // Pong 2P get 3 lives each, others 5
+    else return { speedMult: 1.2, paddleMult: 0.85, lives: (mode === 2 ? 2 : 3) };
+  }
+
+  // reset balls depending on mode & difficulty
+  function resetBallsForMode(mode, diff) {
+    balls = [];
+    const s = difficultySettings(mode, diff);
+    const baseSpeed = 5 * scale * s.speedMult;
+    if (mode === 5 || mode === 3) {
+      balls.push(createBall(paddleBottom.x + paddleBottom.w/2 - 18*scale, paddleBottom.y - 12, 3*scale * s.speedMult, -baseSpeed));
+      balls.push(createBall(paddleBottom.x + paddleBottom.w/2, paddleBottom.y - 12, 0, -baseSpeed));
+      balls.push(createBall(paddleBottom.x + paddleBottom.w/2 + 18*scale, paddleBottom.y - 12, -3*scale * s.speedMult, -baseSpeed));
+    } else {
+      balls.push(createBall(paddleBottom.x + paddleBottom.w/2, paddleBottom.y - 12, 0, -baseSpeed));
+    }
+  }
+
+  // obstacles and bricks
+  function generateDiamonds(count=5) {
+    diamonds = [];
+    const margin = 60*scale;
+    for (let i=0;i<count;i++){
+      diamonds.push({ x: rand(margin, width-margin), y: rand(height*0.18, height*0.6), size: DIAMOND_BASE * scale, scoreValue:50, respawnTimer: Date.now() + 10000 + Math.random()*4000, breakable:true });
+    }
+  }
+  function generateBricks(rows=BRICK_ROWS_BASE) {
+    bricks = [];
+    const brickH = 18*scale;
+    const pad = 5*scale;
+    const totalPad = (BRICK_COLS + 1) * pad;
+    const brickW = (width - totalPad) / BRICK_COLS;
+    const topOffset = 30*scale;
+    for (let r=0;r<rows;r++){
+      for (let c=0;c<BRICK_COLS;c++){
+        const x = c*(brickW+pad) + pad/2;
+        const y = topOffset + r*(brickH+pad);
+        const colors = ['#ff6b8f','#ff9aa8','#ffd6e6','#ffccd8','#ffc9d9'];
+        bricks.push({ x, y, w:brickW, h:brickH, color: colors[r % colors.length], score:100 });
+      }
+    }
+  }
+
+  // HUD
+  function updateHUD() {
+    if (!gameRunning) { hud.style.display = 'none'; hudRight.style.display = 'none'; return; }
+    hud.style.display = 'block'; hudRight.style.display = 'block';
+    hud.innerText = `Skóre: ${paddleBottom.score || 0} | Životy: ${paddleBottom.lives}`;
+    if (!isSinglePlayer) {
+      hudRight.innerText = `P2 (Nahoře): ${paddleTop.score} | Živ: ${paddleTop.lives}`;
+    } else {
+      // ZMĚNA: HUD pro SP nyní ukazuje počet diamantů v MÓDU 4
+      if (selectedMode === 4) {
+        hudRight.innerText = `Vlna: ${wave} | Zbývá: ${diamonds.length}`;
+      } else {
+        hudRight.innerText = `Wave: ${wave} | Best: ${highScore}`;
+      }
+    }
+  }
+
+  // collisions
+  function rectCircleCollide(cx,cy,r, rx,ry,rw,rh) {
+    const closestX = Math.max(rx, Math.min(cx, rx+rw));
+    const closestY = Math.max(ry, Math.min(cy, ry+rh));
+    const dx = cx - closestX; const dy = cy - closestY;
+    return (dx*dx + dy*dy) < (r*r);
+  }
+
+  function checkCornerReflection(ball) {
+    const tri = CORNER_TRI * scale;
+    const corners = [{x:0,y:0},{x:width,y:0},{x:0,y:height},{x:width,y:height}];
+    for (const c of corners) {
+      const dx = ball.x - c.x, dy = ball.y - c.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < tri + ball.r) {
+        if (Math.abs(dx) > Math.abs(dy)) ball.dx = -ball.dx;
+        else ball.dy = -ball.dy;
+        ball.x += ball.dx; ball.y += ball.dy;
+        playSound(580,0.03);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function checkPaddleCollision(ball, p) {
+    if (ball.x + ball.r > p.x && ball.x - ball.r < p.x + p.w) {
+      if (p === paddleBottom && ball.y + ball.r >= p.y && ball.dy > 0) {
+        ball.y = p.y - ball.r - 1;
+        const rel = (ball.x - p.x) / p.w;
+        const maxA = Math.PI/3;
+        const angle = rel * 2 * maxA - maxA;
+        const speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy) * 1.02;
+        ball.dx = speed * Math.sin(angle);
+        ball.dy = -Math.abs(speed * Math.cos(angle));
+        playSound(440,0.02);
+        createParticle(ball.x, ball.y, p.color, 10, 1.5); // Efekt odrazu
+        return true;
+      }
+      if (p === paddleTop && p.visible && ball.y - ball.r <= p.y + p.h && ball.dy < 0) {
+        ball.y = p.y + p.h + ball.r + 1;
+        const rel = (ball.x - p.x) / p.w;
+        const maxA = Math.PI/3;
+        const angle = rel * 2 * maxA - maxA;
+        const speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy) * 1.02;
+        ball.dx = speed * Math.sin(angle);
+        ball.dy = Math.abs(speed * Math.cos(angle));
+        playSound(440,0.02);
+        createParticle(ball.x, ball.y, p.color, 10, 1.5); // Efekt odrazu
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // powerups
+  function spawnPowerup(x,y, typeOverride = null) {
+    let type = typeOverride;
+
+    // Rozšířené typy powerupů pro náhodný drop v módu 3 nebo obecně
+    const ALL_POWERUP_TYPES = ['life','widen','multiball','slow', 'shield', 'fireball', 'area_clear'];
+
+    // Přidání +2 Life Powerup náhodně do všech modů (mimo 2P)
+    if (selectedMode !== 2 && Math.random() < 0.03) { // 3% šance na extra bonus života
+        type = 'extra_life';
+    } else if (typeOverride === null) {
+        // Původní logika pro bonusový mód 3 - nyní s novými typy
+        // *** ÚPRAVA: Pravděpodobnost 25% na -1 život (life_down) ***
+        if (Math.random() < 0.25) {
+            type = 'life_down';
+        } else {
+            const POSITIVE_POWERUPS = ALL_POWERUP_TYPES.filter(t => t !== 'life_down');
+            type = POSITIVE_POWERUPS[Math.floor(Math.random()*POSITIVE_POWERUPS.length)];
+        }
+    }
+
+    if (type) {
+        powerups.push({ x, y, size:18*scale, type:type, vy:1.2*scale });
+    }
+  }
+
+  function applyPowerup(pu) {
+    // V PONGU (Mod 2) a A.I. hrách (Mod 1, 4, 6, 7), horní pálka (P2/AI) nemůže power-upy sbírat
+    // Vzhledem k tomu, že bonusy padají dolů, jdou vždy dolní pálce (P1).
+
+    if (pu.type === 'life') { paddleBottom.lives++; playSound(880,0.04); }
+    if (pu.type === 'extra_life') {
+        paddleBottom.lives += 2; // +2 Životy
+        playSound(1000,0.06);
+    }
+    if (pu.type === 'widen') { paddleBottom.w = Math.min(width*0.8, paddleBottom.w * 1.5); setTimeout(()=> paddleBottom.w = PADDLE_BASE_W * scale, 15000); playSound(720,0.04); }
+    if (pu.type === 'multiball') { balls.push(createBall(paddleBottom.x + 10, paddleBottom.y - 10, rand(-3,3)*scale, -5*scale)); balls.push(createBall(paddleBottom.x + 40, paddleBottom.y - 10, rand(-3,3)*scale, -5*scale)); playSound(880,0.04); }
+    if (pu.type === 'slow') { balls.forEach(b=>{ b.dx *= 0.7; b.dy *= 0.7;}); setTimeout(()=> balls.forEach(b=>{ b.dx *= 1.25; b.dy *= 1.25; }), 8000); playSound(520,0.04); }
+
+    // *** NOVÉ POWERUPY ***
+    if (pu.type === 'shield') {
+        shieldActive = true;
+        shieldTimer = Date.now() + SHIELD_DURATION;
+        playSound(1200,0.08); // Vyšší tón pro štít
+    }
+    if (pu.type === 'fireball') {
+        balls.forEach(b => {
+            b.isFireball = true;
+            b.color = '#ff6600'; // Oranžová barva pro Fireball
+            setTimeout(()=> { b.isFireball = false; b.color = '#fff'; }, 10000); // 10s trvání
+        });
+        playSound(1500,0.05);
+    }
+    if (pu.type === 'area_clear') {
+        clearArea(paddleBottom.x + paddleBottom.w/2, paddleBottom.y, 100 * scale); // Vyčistit oblast 100px kolem středu pálky
+        playSound(1800,0.05); // Exploze
+    }
+    // *** LIFE_DOWN IMPLEMENTACE ***
+    if (pu.type === 'life_down') {
+        paddleBottom.lives = Math.max(0, paddleBottom.lives - 1); // Odečíst 1, max. 0
+        playSound(100,0.1); // Nízký, varovný tón
+        updateHUD();
+
+        if (paddleBottom.lives === 0) {
+            endGame(`KONEC! Ztratil jsi poslední život Power-downem. Skóre: ${paddleBottom.score}`);
+            return; // Ukončí hru, pokud dojdou životy
+        }
+    }
+    // *** KONEC LIFE_DOWN IMPLEMENTACE ***
+    // *** KONEC NOVÉ POWERUPY ***
+  }
+
+  // *** NOVÁ FUNKCE PRO AREA_CLEAR ***
+  function clearArea(cx, cy, radius) {
+      // Čistí diamanty
+      for (let j = diamonds.length-1; j >= 0; j--) {
+          const d = diamonds[j];
+          // Použít centrum diamantu pro výčet
+          const dist = Math.sqrt(Math.pow(d.x - cx, 2) + Math.pow(d.y - cy, 2));
+          if (dist < radius) {
+              if (d.breakable) {
+                  paddleBottom.score += d.scoreValue;
+                  createParticle(d.x, d.y, '#ffcc88', 15, 2);
+                  diamonds.splice(j,1);
+              }
+          }
+      }
+      // Čistí cihly
+      for (let j = bricks.length-1; j >= 0; j--) {
+          const br = bricks[j];
+          // Přibližné centrum cihličky pro výpočet vzdálenosti
+          const br_cx = br.x + br.w/2;
+          const br_cy = br.y + br.h/2;
+          const dist = Math.sqrt(Math.pow(br_cx - cx, 2) + Math.pow(br_cy - cx, 2));
+          if (dist < radius) {
+              paddleBottom.score += br.score;
+              createParticle(br_cx, br_cy, br.color, 20, 2);
+              bricks.splice(j,1);
+          }
+      }
+      updateHUD();
+  }
+  // *** KONEC NOVÉ FUNKCE ***
+
+  // UPDATE
+  function update() {
+    if (!gameRunning) return;
+    const diff = difficultySettings(selectedMode, difficulty);
+
+    // *** UPDATE PRO ŠTÍT ***
+    if (shieldActive && Date.now() > shieldTimer) {
+        shieldActive = false;
+    }
+    // *** KONEC UPDATE PRO ŠTÍT ***
+
+    // update particles
+    for (let i = particles.length-1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+        p.radius *= 0.98; // Zmenšování
+
+        if (p.life <= 0 || p.radius < 0.5) {
+            particles.splice(i, 1);
+        }
+    }
+
+    // move balls
+    for (let i = balls.length-1; i >= 0; i--) {
+      const b = balls[i];
+      b.x += b.dx; b.y += b.dy;
+      if (b.x + b.r > width) { b.x = width - b.r; b.dx = -Math.abs(b.dx); playSound(640,0.02); }
+      if (b.x - b.r < 0) { b.x = b.r; b.dx = Math.abs(b.dx); playSound(640,0.02); }
+
+      checkCornerReflection(b);
+
+      if (isSinglePlayer) {
+        if (b.y - b.r < 0) { b.y = b.r; b.dy = Math.abs(b.dy); playSound(720,0.02); }
+      } else {
+        checkPaddleCollision(b, paddleTop);
+      }
+
+      // diamonds collision
+      if ([1,4,6].includes(selectedMode) || [3,5].includes(selectedMode)) { // Přidáno 3 a 5 pro konzistentní kolize s diamanty
+        for (let j = diamonds.length-1; j >= 0; j--) {
+          const d = diamonds[j];
+          const dx = b.x - d.x; const dy = b.y - d.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < b.r + d.size/2) {
+            if (!b.isFireball) { // Změna směru jen pokud NENÍ Fireball
+                if (Math.abs(dx) > Math.abs(dy)) b.dx = dx > 0 ? Math.abs(b.dx) : -Math.abs(b.dx);
+                else b.dy = dy > 0 ? Math.abs(b.dy) : -Math.abs(b.dy);
+            }
+            playSound(880,0.03);
+            if (d.breakable) {
+              paddleBottom.score += d.scoreValue;
+              createParticle(d.x, d.y, '#ffcc88', 15, 2); // Efekt rozbití diamantu
+              diamonds.splice(j,1);
+              updateHUD();
+              // Náhodný drop +2 Life ve všech modech mimo Mód 2 a Mód 3 (Mod 3 má vlastní logiku powerupů)
+              if (selectedMode !== 3 && selectedMode !== 2 && Math.random() < 0.1) spawnPowerup(d.x, d.y, 'extra_life');
+            }
+            if (!b.isFireball) break; // Přeruší smyčku, pokud Míček není Fireball. Fireball pokračuje
+          }
+        }
+        for (let d of diamonds) {
+          if (d.respawnTimer && Date.now() > d.respawnTimer) {
+            d.x = rand(60*scale, width-60*scale);
+            d.y = rand(height*0.18, height*0.6);
+            d.respawnTimer = Date.now() + 10000 + Math.random()*6000;
+          }
+        }
+        // *** MOD 4 LOGIKA ZDE ***
+        if (selectedMode === 4 && diamonds.length === 0) {
+            wave++;
+            let nextCount = initialDiamondCount * 10;
+
+            if (wave > 2) {
+                 let speedMult = 1.1;
+                 balls.forEach(bb => { bb.dx *= speedMult; bb.dy *= speedMult; });
+            }
+
+            if (nextCount < 10) nextCount = initialDiamondCount * 2;
+
+            generateDiamonds(nextCount);
+            updateHUD();
+            playSound(990, 0.1);
+        }
+        // *** KONEC MOD 4 LOGIKY ***
+      }
+
+      // bricks collision
+      if ([1,7,6].includes(selectedMode) || [3,5].includes(selectedMode)) {
+        for (let j = bricks.length-1; j>=0; j--) {
+          const br = bricks[j];
+          if (rectCircleCollide(b.x, b.y, b.r, br.x, br.y, br.w, br.h)) {
+            if (!b.isFireball) { // Změna směru jen pokud NENÍ Fireball
+                const overlapX = (b.x - (br.x + br.w/2));
+                const overlapY = (b.y - (br.y + br.h/2));
+                if (Math.abs(overlapY) > Math.abs(overlapX)) b.dy = -b.dy;
+                else b.dx = -b.dx;
+            }
+            paddleBottom.score += br.score;
+            createParticle(br.x + br.w/2, br.y + br.h/2, br.color, 20, 2); // Efekt rozbití cihličky
+            bricks.splice(j,1);
+            playSound(720,0.03);
+            updateHUD();
+            // spawn occasional powerup in bonus mode
+            if (selectedMode === 3 && Math.random() < 0.15) spawnPowerup(br.x + br.w/2, br.y + br.h/2);
+            // Náhodný drop +2 Life ve všech modech mimo Mód 2 a Mód 3 (Mod 3 má vlastní logiku powerupů)
+            if (selectedMode !== 3 && selectedMode !== 2 && Math.random() < 0.1) spawnPowerup(br.x + br.w/2, br.y + br.h/2, 'extra_life');
+            if (!b.isFireball) break; // Přeruší smyčku, pokud Míček není Fireball. Fireball pokračuje
+          }
+        }
+        if (bricks.length === 0) {
+          // ZVÝŠENÍ OBTÍŽNOSTI A GENERACE PRO DALŠÍ VLNU
+          if ([1,7,6].includes(selectedMode) || ([3,5].includes(selectedMode) && wave <= MAX_WAVE_WITH_INITIAL_SETUP)) {
+              wave++;
+              let speedMult = 1.08;
+              if (selectedMode === 6) speedMult = 1.1; // Survival má rychlejší násobek
+
+              balls.forEach(bb => { bb.dx *= speedMult; bb.dy *= speedMult; });
+
+              if (selectedMode === 6) { // Survival - nekonečný růst
+                  generateBricks(Math.min(BRICK_ROWS_BASE + Math.floor(wave/2), 8));
+                  generateDiamonds(4 + Math.floor(wave/3));
+              } else if (wave <= MAX_WAVE_WITH_INITIAL_SETUP) { // Mody 1, 3, 5, 7 - omezené vlny
+                  generateBricks(Math.min(BRICK_ROWS_BASE + Math.floor(wave/2), 8));
+              } else {
+                 // Za MAX_WAVE už se neobnovují cihly/diamanty, hraje se s prázdnou plochou/přežívá.
+              }
+
+              updateHUD();
+          }
+        }
+      }
+
+      // paddle collision bottom
+      if (checkPaddleCollision(b, paddleBottom)) {
+        if (selectedMode === 3) paddleBottom.score += 5;
+        updateHUD();
+      }
+
+      // lost bottom
+      if (b.y - b.r > height) {
+
+        // *** ÚPRAVA PRO ŠTÍT ***
+        if (shieldActive) {
+            b.y = height - b.r - 1; // Odrazit míček
+            b.dy = -Math.abs(b.dy);
+            playSound(780,0.02);
+            createParticle(b.x, height, '#55ff55', 10, 1.5); // Efekt odrazu od štítu
+            continue; // Pokračovat na další míček, neodečítat život
+        }
+        // *** KONEC ÚPRAVY PRO ŠTÍT ***
+
+        if (!isSinglePlayer) paddleTop.score += 1;
+        paddleBottom.lives--;
+        balls.splice(i,1);
+        playSound(220,0.04);
+        updateHUD();
+        if (paddleBottom.lives <= 0) {
+          endGame(isSinglePlayer ? `KONEC! Skóre: ${paddleBottom.score}` : 'Horní hráč (P2) vyhrál!');
+          return;
+        } else if (balls.length === 0 && isSinglePlayer) { // Vrátit míček nad pálku, pokud zbývají životy v SP
+            resetBallsForMode(selectedMode, difficulty);
+        }
+      }
+
+      // lost top in 2P
+      if (b.y + b.r < 0 && !isSinglePlayer) {
+        paddleBottom.score += 1;
+        paddleTop.lives--;
+        balls.splice(i,1);
+        playSound(220,0.04);
+        updateHUD();
+        if (paddleTop.lives <= 0) {
+          endGame('Dolní hráč (P1) vyhrál!');
+          return;
+        } else if (balls.length === 0) { // Vrátit míček do hry v 2P
+            resetBallsForMode(selectedMode, difficulty);
+        }
+      }
+    }
+
+    if (balls.length === 0 && gameRunning) {
+      // Mimo logiku v blocích výše, toto se spustí jen pokud je balls.length 0 a hra stále běží (např. Chaos mód).
+      // Zde můžeme přidat logiku pro módy, kde je nutné automatické vhození míčku.
+      // Pro většinu módů s životy je to již vyřešeno nahoře.
+    }
+
+    // powerups movement & pickup (mode 3 + all modes s náhodným bonusem)
+    for (let p = powerups.length-1; p>=0; p--) {
+      const pu = powerups[p];
+      pu.y += pu.vy;
+      if (pu.y > height) powerups.splice(p,1);
+      // Sběr power-upu vždy dolní pálkou (P1), protože padá dolů.
+      if (pu.y + pu.size > paddleBottom.y && pu.x > paddleBottom.x && pu.x < paddleBottom.x + paddleBottom.w) {
+        applyPowerup(pu);
+        powerups.splice(p,1);
+      }
+    }
+
+    // simple AI for top paddle in singleplayer if visible
+    if (isSinglePlayer && paddleTop.visible) {
+      let targetX = width/2;
+      if (balls.length) targetX = balls[0].x;
+      paddleTop.x += (Math.max(0, Math.min(width-paddleTop.w, targetX - paddleTop.w/2)) - paddleTop.x) * 0.12;
+    }
+  }
+
+  // DRAW
+  function draw() {
+    ctx.clearRect(0,0,width,height);
+
+    // diamonds
+    for (const d of diamonds) {
+      ctx.save(); ctx.translate(d.x, d.y);
+      ctx.beginPath();
+      const s = d.size/2;
+      ctx.moveTo(0,-s); ctx.lineTo(s,0); ctx.lineTo(0,s); ctx.lineTo(-s,0); ctx.closePath();
+      ctx.fillStyle = d.breakable ? '#ffcc88' : '#bb66aa';
+      ctx.shadowColor = d.breakable ? '#ffcc88' : '#bb66aa'; ctx.shadowBlur = 12;
+      ctx.fill(); ctx.restore(); ctx.shadowBlur = 0;
+    }
+
+    // bricks
+    for (const br of bricks) {
+      ctx.fillStyle = br.color;
+      ctx.fillRect(br.x, br.y, br.w, br.h);
+    }
+
+    // corner triangles
+    drawCornerTri(0,0,0);
+    drawCornerTri(width,0,Math.PI/2);
+    drawCornerTri(0,height,-Math.PI/2);
+    drawCornerTri(width,height,Math.PI);
+
+    // *** NOVÉ: Kreslení štítu ***
+    if (shieldActive) {
+        ctx.fillStyle = `rgba(85, 255, 85, ${0.4 + (Math.sin(Date.now() / 150) * 0.1)})`; // Pulzující barva
+        // Vykreslení štítu přes celou šířku s výškou 10px těsně nad spodním okrajem
+        ctx.fillRect(0, height - 10, width, 10);
+
+        // Vykreslit čas zbývající do konce štítu (jednoduchý timer)
+        const timeLeft = Math.ceil((shieldTimer - Date.now()) / 1000);
+        ctx.fillStyle = '#fff';
+        ctx.font = `${14 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`ŠTÍT: ${timeLeft}s`, width/2, height - 20);
+    }
+    // *** KONEC NOVÉ: Kreslení štítu ***
+
+    // paddles
+    drawPaddle(paddleTop);
+    drawPaddle(paddleBottom);
+
+    // balls
+    for (const b of balls) {
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+      ctx.fillStyle = b.color;
+      ctx.shadowColor = b.isFireball ? '#ff6600' : '#fff'; // Fireball glow
+      ctx.shadowBlur = b.isFireball ? 15 : 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // powerups
+    for (const pu of powerups) {
+      let color = pu.type === 'life' ? '#55ff55' :
+                  pu.type === 'widen' ? '#ff99aa' :
+                  pu.type === 'multiball' ? '#ffd07a' :
+                  pu.type === 'slow' ? '#cc88ff' :
+                  pu.type === 'extra_life' ? '#00ffc8' :
+                  pu.type === 'shield' ? '#33ccff' : // Modrá pro štít
+                  pu.type === 'fireball' ? '#ff6600' : // Oranžová pro Fireball
+                  pu.type === 'area_clear' ? '#dddd33' : '#550000'; // Tmavě červená pro life_down
+      ctx.fillStyle = color;
+      ctx.fillRect(pu.x - pu.size/2, pu.y - pu.size/2, pu.size, pu.size);
+
+      ctx.fillStyle = '#100';
+      ctx.font = `${10 * scale}px Arial`;
+      ctx.textAlign = 'center';
+
+      // Text pro lepší identifikaci nových bonusů
+      let text = '';
+      if (pu.type === 'extra_life') text = '+2';
+      else if (pu.type === 'shield') text = 'S';
+      else if (pu.type === 'fireball') text = 'F';
+      else if (pu.type === 'area_clear') text = 'B'; // B jako Bomba
+      else if (pu.type === 'life_down') text = '-1'; // *** Vizuální pro -1 život ***
+
+      if (text) ctx.fillText(text, pu.x, pu.y + (3*scale));
+    }
+
+    // particles
+    for (const p of particles) {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawPaddle(p) {
+    if (!p.visible && p === paddleTop) return;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+  }
+  function drawCornerTri(x,y,rot) {
+    ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+    ctx.fillStyle = '#ff2d55';
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(CORNER_TRI*scale,0); ctx.lineTo(0,CORNER_TRI*scale); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // controls
+  function keyboardControl() {
+    if (!gameRunning) return;
+    const speed = 12 * scale;
+    if (!isSinglePlayer) {
+      if (keys['j']) paddleTop.x = Math.max(0, paddleTop.x - speed);
+      if (keys['l']) paddleTop.x = Math.min(width - paddleTop.w, paddleTop.x + speed);
+    }
+    if (keys['a']) paddleBottom.x = Math.max(0, paddleBottom.x - speed);
+    if (keys['d']) paddleBottom.x = Math.min(width - paddleBottom.w, paddleBottom.x + speed);
+  }
+
+  canvas.addEventListener('mousemove', e=>{
+    if (!gameRunning) return;
+    const mx = e.clientX; const my = e.clientY;
+    if (isSinglePlayer) {
+      paddleBottom.x = Math.min(Math.max(mx - paddleBottom.w/2, 0), width - paddleBottom.w);
+    } else {
+      if (my < height/2) paddleTop.x = Math.min(Math.max(mx - paddleTop.w/2, 0), width - paddleTop.w);
+      else paddleBottom.x = Math.min(Math.max(mx - paddleBottom.w/2, 0), width - paddleBottom.w);
+    }
+  });
+  canvas.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    if (!gameRunning) return;
+    for (const t of e.touches) {
+      const tx = t.clientX; const ty = t.clientY;
+      if (isSinglePlayer) {
+        paddleBottom.x = Math.min(Math.max(tx - paddleBottom.w/2, 0), width - paddleBottom.w);
+      } else {
+        if (ty < height/2) paddleTop.x = Math.min(Math.max(tx - paddleTop.w/2, 0), width - paddleTop.w);
+        else paddleBottom.x = Math.min(Math.max(tx - paddleBottom.w/2, 0), width - paddleBottom.w);
+      }
+    }
+  }, { passive:false });
+
+  // *** NOVÁ FUNKCE: Toggle Pause ***
+  function togglePause(pause) {
+    if (!gameRunning) return;
+    gamePaused = pause;
+    if (gamePaused) {
+      btnPause.textContent = "POKRAČOVAT";
+      btnPause.classList.add('paused');
+    } else {
+      btnPause.textContent = "PAUZA";
+      btnPause.classList.remove('paused');
+      keys['escape'] = false; // Zamezit okamžitému zopakování ESC
+    }
+  }
+
+  // START / END
+  function startGame(mode) {
+    selectedMode = mode;
+    isSinglePlayer = (mode !== 2);
+    // load difficulty for this mode
+    difficulty = getStoredDifficulty(mode);
+    const ds = difficultySettings(mode, difficulty);
+    // reset paddles & scores & lives depending on difficulty
+    paddleTop.score = 0; paddleBottom.score = 0;
+    paddleTop.lives = ds.lives; paddleBottom.lives = ds.lives;
+    paddleTop.visible = !isSinglePlayer;
+    // adjust paddle widths by difficulty
+    paddleBottom.w = PADDLE_BASE_W * scale * ds.paddleMult;
+    paddleTop.w = PADDLE_BASE_W * scale * ds.paddleMult;
+    wave = 1;
+    // spawn obstacles/bricks/powerups as per mode
+    bricks = []; diamonds = []; powerups = []; particles = []; // Reset particles
+    // Reset bonusy
+    shieldActive = false; shieldTimer = 0;
+    
+    if (mode === 1) { generateBricks(5); generateDiamonds(5); }
+    else if (mode === 2) { /* classic 2P */ generateBricks(0); }
+    else if (mode === 3) { generateBricks(4); }
+    else if (mode === 4) {
+        initialDiamondCount = (difficulty === 'easy' ? 5 : 8); // Nastav počáteční počet diamantů dle obtížnosti
+        generateDiamonds(initialDiamondCount);
+    }
+    else if (mode === 5) { generateBricks(3); }
+    else if (mode === 6) { generateBricks(4); generateDiamonds(4); }
+    else if (mode === 7) { generateBricks(6); }
+    resetBallsForMode(mode, difficulty);
+    updateHUD();
+    menuScreen.style.display = 'none';
+    canvas.style.display = 'block';
+    hud.style.display = 'block'; hudRight.style.display = 'block';
+    gameControls.style.display = 'flex'; // *** ZOBRAZIT OVLÁDACÍ LIŠTU ***
+    gameRunning = true;
+    togglePause(false); // Nastavit pauzu na FALSE
+  }
+
+  function endGame(message) {
+    gameRunning = false;
+    gameControls.style.display = 'none'; // *** SKRÝT OVLÁDACÍ LIŠTU ***
+    updateHUD();
+    if (paddleBottom.score > highScore) {
+      highScore = paddleBottom.score;
+      localStorage.setItem('popik_highscore', highScore);
+      setTimeout(()=> alert(message + '\nNové nejlepší skóre: ' + highScore), 120);
+    } else {
+      setTimeout(()=> alert(message), 120);
+    }
+    setTimeout(()=> {
+      canvas.style.display = 'none';
+      menuScreen.style.display = 'flex';
+      paddleBottom.w = PADDLE_BASE_W * scale;
+      powerups = []; bricks = []; diamonds = []; balls = []; particles = []; // Reset particles
+      updateHUD();
+    }, 150);
+  }
+
+  // mode selection wiring on Start button
+  startBtn.addEventListener('click', ()=>{
+    const checked = document.querySelector('input[name="mode"]:checked');
+    const sel = checked ? Number(checked.value) : 4; // Default na mód 4 po úpravě
+    resize();
+    startGame(sel);
+  });
+
+  // *** NOVÉ: Obsluha TLAČÍTEK V HŘE ***
+  btnPause.addEventListener('click', () => {
+      togglePause(!gamePaused);
+  });
+
+  btnExit.addEventListener('click', () => {
+    if (confirm('Opravdu ukončit hru a vrátit se do Menu?')) {
+        endGame('Hra ukončena do menu. Skóre: ' + paddleBottom.score);
+    }
+  });
+  // *** KONEC NOVÉ OBSLUHY ***
+
+  // initial UI set
+  resize();
+  onModeSelected(Number(document.querySelector('input[name="mode"]:checked').value)); // Zajistit správné zvýraznění po načtení
+
+  // main loop
+  function loop() {
+    requestAnimationFrame(loop);
+    if (!gameRunning) return;
+    if (gamePaused) { // PAUZA: Pouze překreslujeme, neaktualizujeme stav
+        draw();
+        return;
+    }
+    update();
+    draw();
+    keyboardControl();
+  }
+  loop();
+
+  // expose debug
+  window.Popik = { startMode: startGame, endNow: ()=> endGame('Konec (force)'), state: ()=> ({mode:selectedMode,running:gameRunning,balls:balls.length,bricks:bricks.length}) };
+
+  // Save best on unload
+  window.addEventListener('beforeunload', ()=> {
+    if (paddleBottom.score && paddleBottom.score > highScore) localStorage.setItem('popik_highscore', paddleBottom.score);
+  });
+
+  // helper functions for difficulty settings (same as earlier)
+  function difficultySettings(mode, diff) {
+    const isEasy = (diff === 'easy');
+    if (isEasy) return { speedMult: 0.85, paddleMult: 1.3, lives: (mode === 2 ? 3 : 5) };
+    else return { speedMult: 1.2, paddleMult: 0.85, lives: (mode === 2 ? 2 : 3) };
+  }
+
+  // store/get difficulty wrappers (duplicated defs above for safety)
+  function getStoredDifficulty(mode) { return localStorage.getItem('popik_diff_mode_' + mode) || 'easy'; }
+  function setStoredDifficulty(mode, diff) { localStorage.setItem('popik_diff_mode_' + mode, diff); }
+
+  // Ovládání ESC pro Pauzu/Pokračování (přesunuto sem pro zjednodušení)
+  window.addEventListener('keydown', e => {
+      const key = e.key.toLowerCase();
+      if (!gameRunning) return;
+
+      if (key === 'escape') {
+          // Zabráníme, aby se ESC stalo nechtěně aktivním, pokud jsme právě v menu po pauze
+          if (!keys[key]) { 
+              togglePause(!gamePaused);
+          }
+          keys[key] = true; // Potřebné, aby se to neopakovalo okamžitě
+      }
+  });
+  window.addEventListener('keyup', e => {
+      keys[e.key.toLowerCase()] = false;
+  });
+
+})();
+</script>
+</body>
+</html>
