@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rádio Kombinátor - Dynamická Rádia</title>
+    <style>
+        /* --- CSS: Zachováno pro vzhled a přehlednost --- */
+        :root {
+            --bg: #f4f7f9;
+            --text: #1c1c1c;
+            --card-bg: #ffffff;
+            --accent: #007bff;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg: #121212;
+            --text: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --accent: #4da6ff;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+        }
+        a { text-decoration: none; color: var(--accent); }
+        a:hover { text-decoration: underline; }
+
+        header {
+            background: var(--card-bg);
+            padding: 1rem 20px;
+            box-shadow: 0 2px 8px var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        header h1 { margin: 0; font-size: 1.6rem; color: var(--accent); }
+
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 20px;
+            background: var(--bg);
+            border-bottom: 1px solid #ddd;
+        }
+
+        nav button {
+            padding: 8px 15px;
+            border: 1px solid var(--accent);
+            background: var(--card-bg);
+            color: var(--text);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        nav button:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        nav button.active {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .theme-toggle {
+            background: var(--card-bg);
+            border: 1px solid #ccc;
+            font-size: 1.2rem;
+            padding: 8px 12px;
+            margin-left: auto;
+        }
+        .theme-toggle:hover {
+            background: var(--text);
+            color: var(--card-bg);
+        }
+
+        .main-content {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            margin: 10px 0 15px 0;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            background: var(--card-bg);
+            color: var(--text);
+        }
+        [data-theme="dark"] #searchInput { border-color: #555; }
+
+        #radioList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+        }
+
+        .station-item {
+            background: var(--card-bg);
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            transition: border-left 0.3s;
+        }
+        .station-info { flex-grow: 1; min-width: 0; }
+        .station-info h3 { margin: 0 0 4px 0; font-size: 1.1rem; }
+        .station-info small { display: block; color: #666; }
+        [data-theme="dark"] .station-info small { color: #aaa; }
+        
+        /* Ponechávám třídu pro případné ruční označení top stanic v budoucnu */
+        .fixed-station { border-left: 5px solid var(--accent); }
+
+        .station-actions button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .play-btn { background: var(--accent); color: white; }
+        .play-btn:hover { background: #0056b3; }
+        .link-btn { background: #f0f0f0; color: var(--accent); border: 1px solid #ccc; }
+        [data-theme="dark"] .link-btn { background: #333; color: var(--accent); border: 1px solid #555; }
+
+        .player-area {
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px var(--shadow);
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+            border: 1px solid var(--accent);
+        }
+        .player-area audio {
+            width: 100%;
+            max-width: 600px;
+            filter: invert(var(--theme-invert, 0%)); /* Inverze pro tmavý motiv */
+        }
+        [data-theme="dark"] .player-area audio { --theme-invert: 100%; }
+
+        #genresContainer {
+            margin-top: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        #genresList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        #genresList button {
+            padding: 8px 14px;
+            border-radius: 20px;
+            background: #e0e0e0;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            color: var(--text);
+        }
+        [data-theme="dark"] #genresList button { background: #333; border-color: #555; color: #e0e0e0; }
+        #genresList button:hover, #genresList button.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        .genre-title {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        #searchEnginesContent {
+            display: none;
+            margin-top: 20px;
+        }
+        #searchEnginesList {
+            list-style: none;
+            padding-left: 0;
+        }
+        #searchEnginesList li {
+            background: var(--card-bg);
+            margin-bottom: 10px;
+            padding: 12px 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        [data-theme="dark"] #searchEnginesList li { border-color: #333; }
+
+        @media (max-width: 600px) {
+            nav { flex-direction: column; }
+            nav button { width: 100%; margin-bottom: 5px; }
+            .theme-toggle { margin-left: 0; }
+            .station-item { flex-direction: column; align-items: flex-start; }
+            .station-actions { width: 100%; display: flex; gap: 5px; }
+            .station-actions button { flex-grow: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🌐 Rádio Kombinátor</h1>
+</header>
+
+<nav>
+    <button id="nav-cz" class="active" onclick="selectView('cz')">🇨🇿 Česká Rádia</button>
+    <button id="nav-world" onclick="selectView('world')">🌍 Světová Rádia</button>
+    <button id="nav-genres" onclick="selectView('genres')">🎧 CZ podle Žánru</button>
+    <button id="nav-world-genres" onclick="selectView('world-genres')">🌍 World podle Žánru</button>
+    <button id="nav-searchEngines" onclick="selectView('searchEngines')">🔗 Vyhledávače Rádií</button>
+    <input type="text" id="searchInput" placeholder="Hledat: Název, Země, Žánr..." oninput="filterStations()">
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+</nav>
+
+<div class="main-content">
+
+    <div class="player-area" id="playerArea">
+        <div class="player-label" id="playerLabel">Přehrávač</div>
+        <audio id="audioPlayer" controls autoplay></audio>
+    </div>
+    
+    <div id="genresContainer">
+        <div class="genre-title" id="genresTitle">Vyberte žánr pro filtrování stanic:</div>
+        <div id="genresList"></div>
+    </div>
+    
+    <div id="searchEnginesContent">
+        <p style="color: #777; margin-top: 5px;">Externí katalogy rádií. Pro nalezení dalších streamů použijte tyto zdroje:</p>
+        <ul id="searchEnginesList">
+            <li><a href="https://www.radio-browser.info" target="_blank" rel="noopener noreferrer">Radio-browser.info</a> – **Open source databáze rádií (zdroj dat pro tuto stránku)**</li>
+            <li><a href="https://radios.cz" target="_blank" rel="noopener noreferrer">Radios.cz</a> – Český katalog internetových rádií a streamů</li>
+            <li><a href="https://radioplayer.cz" target="_blank" rel="noopener noreferrer">Radioplayer.cz</a> – Oficiální český přehrávač rádií</li>
+            <li><a href="https://tunein.com" target="_blank" rel="noopener noreferrer">TuneIn.com</a> – Globální a oblíbená platforma pro streamování rádií</li>
+            <li><a href="https://www.radio.net" target="_blank" rel="noopener noreferrer">Radio.net</a> – Další velký mezinárodní rádio katalog</li>
+        </ul>
+    </div>
+
+    <ul id="radioList">
+        <li>Načítám počáteční stanice...</li>
+    </ul>
+
+</div>
+
+<script>
+    const API_URL = "https://de1.api.radio-browser.info/json/stations";
+
+    // --- DOM Elementy ---
+    const radioListEl = document.getElementById('radioList');
+    const searchInput = document.getElementById('searchInput');
+    const playerArea = document.getElementById('playerArea');
+    const playerLabel = document.getElementById('playerLabel');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const genresContainer = document.getElementById('genresContainer');
+    const genresList = document.getElementById('genresList');
+    const genresTitle = document.getElementById('genresTitle');
+    const searchEnginesContent = document.getElementById('searchEnginesContent');
+
+    // --- CENTRALIZOVANÝ STAV A DATA ---
+    const AppState = {
+        czStations: [],
+        worldStations: [],
+        currentView: 'cz',
+        activeGenre: null, 
+    };
+
+    // --- POMOCNÉ FUNKCE ---
+
+    function getFlagEmoji(countryCode) {
+        if (!countryCode || countryCode.length !== 2) return '';
+        const codePoints = countryCode.toUpperCase().split('').map(c => 127397 + c.charCodeAt());
+        return String.fromCodePoint(...codePoints);
+    }
+
+    function capitalize(str) {
+        if (!str || str.trim() === '') return '';
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Generování položky rádia
+    function generateStationItemHTML(st, isCzech = false) {
+        
+        const countryInfo = isCzech ? `Česko ${getFlagEmoji('CZ')}` : `${st.country} ${getFlagEmoji(st.countrycode)}`;
+        const tags = st.tags ? st.tags.split(',').map(t => capitalize(t.trim())).filter(t => t.length > 0).slice(0, 3).join(', ') : 'Neznámé';
+        const nameDisplay = st.name.length > 50 ? st.name.substring(0, 47) + '...' : st.name;
+        const streamUrl = st.url_resolved || st.url;
+
+        const buttonDisabled = streamUrl ? '' : 'disabled';
+        const buttonText = streamUrl ? '▶ Přehrát' : '🔎 Hledej';
+
+        return `
+            <li class="station-item" data-name="${st.name}" data-country="${st.country}" data-tags="${st.tags}">
+                <div class="station-info">
+                    <h3>${nameDisplay}</h3>
+                    <small>
+                        ${countryInfo} 
+                        ${st.city ? `| Město: ${st.city}` : ''}
+                        | Žánry: ${tags}
+                    </small>
+                </div>
+                <div class="station-actions">
+                    <button 
+                        class="play-btn" 
+                        data-url="${streamUrl || ''}" 
+                        data-name="${st.name}"
+                        onclick="${streamUrl ? 'playStation(this)' : 'alert(`Stream pro ${st.name} nebyl v API nalezen. Zkuste odkaz Web.`)'}"
+                        ${buttonDisabled}>
+                        ${buttonText}
+                    </button>
+                    <a href="${st.homepage}" target="_blank" rel="noopener noreferrer" class="link-btn" style="${st.homepage ? '' : 'display:none;'}">🌐 Web</a>
+                </div>
+            </li>
+        `;
+    }
+
+    // Render seznamu stanic do DOM
+    function renderStationList(stations, isCzech = false) {
+        let finalStations = stations;
+        
+        if(!finalStations || finalStations.length === 0) {
+            radioListEl.innerHTML = '<li>Nebyly nalezeny žádné stanice odpovídající filtru/výběru.</li>';
+            return;
+        }
+        radioListEl.innerHTML = finalStations.map(s => generateStationItemHTML(s, isCzech)).join('');
+    }
+
+    // --- FUNKCE PRO NAČÍTÁNÍ DAT Z API ---
+
+    async function fetchData(endpoint, count, filterCZ = false) {
+        try {
+            const url = count ? `${API_URL}/${endpoint}/${count}` : `${API_URL}/${endpoint}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Selhalo získání dat z API. Status: ${res.status}`);
+            let data = await res.json();
+            
+            if(filterCZ) {
+                data = data.filter(s => s.countrycode !== 'CZ');
+            }
+            
+            return data;
+        } catch(e) {
+            console.error("Chyba při stahování z API:", e);
+            return [];
+        }
+    }
+
+    // NAČÍTÁNÍ VŠECH CZ RÁDIÍ
+    async function fetchCZStations() {
+        radioListEl.innerHTML = '<li>⏳ Načítám **všechna** česká rádia z API Radio-Browser...</li>'; 
+        
+        const apiData = await fetchData('bycountrycodeexact/CZ', null);
+
+        if (apiData.length === 0) {
+            radioListEl.innerHTML = '<li>⚠️ Nepodařilo se načíst data z API nebo nebyly nalezeny CZ stanice. Zkuste to později nebo zkontrolujte konzoli prohlížeče.</li>';
+            AppState.czStations = [];
+            return;
+        }
+
+        const validStations = apiData.filter(s => s.url_resolved || s.url);
+        
+        AppState.czStations = validStations;
+
+        if(AppState.currentView === 'cz' || AppState.currentView === 'genres') {
+            if(AppState.currentView === 'cz') renderStationList(AppState.czStations, true);
+            generateGenresButtons(AppState.czStations);
+        } else {
+             radioListEl.innerHTML = '<li>Data pro jinou sekci jsou načtena.</li>';
+        }
+    }
+
+    async function fetchWorldStations() {
+        radioListEl.innerHTML = '<li>⏳ Načítám světová rádia (Max 8000 nejklikánějších)...</li>';
+        const data = await fetchData('topclick', 8000, true); 
+        
+        if (data.length === 0) {
+            radioListEl.innerHTML = '<li>⚠️ Nepodařilo se načíst světová rádia z API.</li>';
+            AppState.worldStations = [];
+            return;
+        }
+
+        AppState.worldStations = data.filter(s => s.url_resolved || s.url); 
+        if(AppState.currentView === 'world' || AppState.currentView === 'world-genres') {
+            if(AppState.currentView === 'world') renderStationList(AppState.worldStations, false);
+            generateGenresButtons(AppState.worldStations);
+        } else {
+            radioListEl.innerHTML = '<li>Data pro jinou sekci jsou načtena.</li>';
+        }
+    }
+
+    // --- FUNKCE PRO ŽÁNRY A FILTROVÁNÍ (Beze změny) ---
+
+    function generateGenresButtons(stations) {
+        let genreMap = new Map();
+        stations.forEach(s => {
+            if(s.tags) {
+                s.tags.split(',').forEach(t => {
+                    const trimmed = t.trim().toLowerCase();
+                    if(trimmed.length > 2 && trimmed.length < 20 && !/\d/.test(trimmed)) {
+                        genreMap.set(trimmed, (genreMap.get(trimmed) || 0) + 1);
+                    }
+                });
+            }
+        });
+        
+        const genres = Array.from(genreMap.keys())
+            .filter(g => genreMap.get(g) >= 5)
+            .sort();
+
+        genresList.innerHTML = genres.map(g => 
+            `<button onclick="loadGenre('${g}', this)" class="${AppState.activeGenre === g ? 'active' : ''}">${capitalize(g)}</button>`
+        ).join('');
+    }
+    
+    function loadGenre(genre, button) {
+        const isCZ = AppState.currentView === 'genres';
+        const stationsToFilter = isCZ ? AppState.czStations : AppState.worldStations;
+        
+        if (AppState.activeGenre === genre) {
+            AppState.activeGenre = null;
+            document.querySelectorAll('#genresList button').forEach(btn => btn.classList.remove('active'));
+        } else {
+            AppState.activeGenre = genre;
+            document.querySelectorAll('#genresList button').forEach(btn => btn.classList.remove('active'));
+            if (button) button.classList.add('active');
+        }
+
+        genresTitle.textContent = (isCZ ? `České rádia: ` : `Světová rádia: `) + (AppState.activeGenre ? `Žánr: ${capitalize(AppState.activeGenre)}` : `Všechny žánry`);
+        
+        if (!AppState.activeGenre) {
+             renderStationList(stationsToFilter, isCZ);
+             return;
+        }
+
+        const filtered = stationsToFilter.filter(s => 
+            s.tags && s.tags.toLowerCase().split(',').map(t => t.trim()).includes(AppState.activeGenre)
+        );
+
+        if(filtered.length === 0) {
+            radioListEl.innerHTML = `<li>Pro žánr <strong>${capitalize(AppState.activeGenre)}</strong> nebyly nalezeny žádné stanice.</li>`;
+        } else {
+            renderStationList(filtered, isCZ);
+        }
+    }
+
+    function filterStations() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const isCZ = AppState.currentView === 'cz';
+
+        if(AppState.currentView === 'genres' || AppState.currentView === 'world-genres' || AppState.currentView === 'searchEngines') return;
+        
+        AppState.activeGenre = null; 
+        document.querySelectorAll('#genresList button').forEach(btn => btn.classList.remove('active'));
+
+        const stationsToFilter = isCZ ? AppState.czStations : AppState.worldStations;
+
+        if(searchTerm === '') {
+            renderStationList(stationsToFilter, isCZ);
+            return;
+        }
+
+        const filtered = stationsToFilter.filter(s =>
+            s.name.toLowerCase().includes(searchTerm) ||
+            (s.country && s.country.toLowerCase().includes(searchTerm)) ||
+            (s.tags && s.tags.toLowerCase().includes(searchTerm)) ||
+            (s.city && s.city.toLowerCase().includes(searchTerm))
+        );
+
+        renderStationList(filtered, isCZ);
+    }
+
+    // --- FUNKCE PRO PŘEHRÁVÁNÍ (Vizuálně vylepšeno) ---
+
+    function playStation(buttonElement) {
+        let url = buttonElement.getAttribute('data-url');
+        const name = buttonElement.getAttribute('data-name');
+        
+        // Reset a vizuální zpětná vazba
+        document.querySelectorAll('.station-actions button').forEach(btn => {
+            if (btn.classList.contains('play-btn') && btn !== buttonElement) {
+                btn.textContent = '▶ Přehrát';
+            }
+        });
+        buttonElement.textContent = '... Načítám ...';
+
+        // HTTPS Korekce pro GitHub Pages
+        if (url && url.startsWith('http://')) {
+            url = url.replace('http://', 'https://');
+        }
+        
+        playerArea.style.display = 'block';
+        playerLabel.textContent = `Příprava: ${name}`;
+
+        if (audioPlayer.src !== url) {
+            audioPlayer.pause();
+            audioPlayer.src = url;
+            audioPlayer.load();
+        }
+
+        audioPlayer.play().then(() => {
+            playerLabel.textContent = `▶ Hraje: ${name}`;
+            buttonElement.textContent = '✔ Hraje'; // Potvrzení
+        }).catch(e => {
+            console.error("Chyba přehrávání:", e);
+            playerLabel.textContent = `❌ Chyba při spuštění ${name}. Zkuste Web.`;
+            audioPlayer.src = "";
+            buttonElement.textContent = '❌ Selhalo'; // Potvrzení selhání
+        });
+    }
+
+
+    // --- FUNKCE PRO PŘEPÍNÁNÍ POHLEDŮ A TÉMA (Beze změny) ---
+
+    async function selectView(viewName) {
+        AppState.currentView = viewName;
+        AppState.activeGenre = null;
+        
+        // Reset vizuálního stavu
+        document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`nav-${viewName}`).classList.add('active');
+        genresContainer.style.display = 'none';
+        searchEnginesContent.style.display = 'none';
+        radioListEl.style.display = 'grid';
+        searchInput.value = '';
+        searchInput.disabled = false;
+        genresTitle.textContent = 'Vyberte žánr pro filtrování stanic:';
+        genresList.innerHTML = '';
+        // Reset tlačítka přehrávání
+        document.querySelectorAll('.station-actions button.play-btn').forEach(btn => btn.textContent = '▶ Přehrát');
+
+
+        switch(viewName) {
+            case 'cz':
+                if(AppState.czStations.length === 0) await fetchCZStations();
+                else renderStationList(AppState.czStations, true);
+                searchInput.placeholder = "Hledat: Název, Žánr (v CZ stanicích)...";
+                break;
+
+            case 'world':
+                if(AppState.worldStations.length === 0) await fetchWorldStations();
+                else renderStationList(AppState.worldStations, false);
+                searchInput.placeholder = "Hledat: Název, Země, Žánr (ve světových stanicích)...";
+                break;
+
+            case 'genres':
+                genresContainer.style.display = 'block';
+                searchInput.placeholder = "Vyhledávání je v režimu Žánry neaktivní.";
+                searchInput.disabled = true;
+                if(AppState.czStations.length === 0) await fetchCZStations();
+                else {
+                    generateGenresButtons(AppState.czStations);
+                    radioListEl.innerHTML = '<li>Vyberte žánr z tlačítek výše pro filtrování českých stanic.</li>';
+                }
+                break;
+
+            case 'world-genres':
+                genresContainer.style.display = 'block';
+                searchInput.placeholder = "Vyhledávání je v režimu Žánry neaktivní.";
+                searchInput.disabled = true;
+                if(AppState.worldStations.length === 0) await fetchWorldStations();
+                else {
+                    generateGenresButtons(AppState.worldStations);
+                    radioListEl.innerHTML = '<li>Vyberte žánr z tlačítek výše pro filtrování světových stanic.</li>';
+                }
+                break;
+
+            case 'searchEngines':
+                searchEnginesContent.style.display = 'block';
+                radioListEl.style.display = 'none';
+                searchInput.placeholder = "Vyhledávání je v režimu Vyhledávače neaktivní.";
+                searchInput.disabled = true;
+                break;
+
+            default:
+                radioListEl.innerHTML = '<li>Neznámý režim.</li>';
+                break;
+        }
+    }
+    
+    function initializeTheme() {
+        if(localStorage.getItem("theme") === "dark") {
+            document.documentElement.setAttribute("data-theme", "dark");
+            document.querySelector(".theme-toggle").textContent = "☀️";
+        }
+    }
+
+    function toggleTheme() {
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        if(isDark) {
+            document.documentElement.removeAttribute("data-theme");
+            localStorage.setItem("theme", "light");
+            document.querySelector(".theme-toggle").textContent = "🌙";
+        } else {
+            document.documentElement.setAttribute("data-theme", "dark");
+            localStorage.setItem("theme", "dark");
+            document.querySelector(".theme-toggle").textContent = "☀️";
+        }
+    }
+
+    // --- INICIALIZACE ---
+
+    initializeTheme();
+    selectView('cz');
+</script>
+
+</body>
+</html>
