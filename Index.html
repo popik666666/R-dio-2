@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rádio Kombinátor - Dynamická Rádia</title>
+    <style>
+        /* --- CSS --- */
+
+        :root, [data-theme="dark"] {
+            --bg: #121212;
+            --text: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --accent: #4da6ff;
+            --shadow: rgba(255, 255, 255, 0.1);
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        a { text-decoration: none; color: var(--accent); }
+        a:hover { text-decoration: underline; }
+
+        header {
+            background: var(--card-bg);
+            box-shadow: 0 2px 8px var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        /* Nový kontejner pro hlavičku a dar */
+        .header-content {
+            padding: 1rem 20px 0.5rem 20px;
+            position: relative; 
+        }
+
+        header h1 { 
+            margin: 0; 
+            font-size: 1.6rem; 
+            color: var(--accent); 
+        }
+        
+        /* NOVÝ STYL PRO ZKUŠEBNÍ VERZI */
+        .version-status {
+            display: block;
+            margin: 2px 0 5px 0;
+            font-size: 0.8rem;
+            color: #ffcc00; /* Žlutá barva pro varování/status */
+            font-weight: bold;
+        }
+
+        /* STYL PRO MINI PAYPAL ODKAZ V HLAVIČCE */
+        .header-paypal {
+            font-size: 0.9rem;
+            margin: 5px 0 0 0;
+            display: block;
+        }
+        .header-paypal a {
+            color: #0070BA; 
+            font-weight: bold;
+        }
+
+        /* STYL PRO UMÍSTĚNÍ POČÍTADLA */
+        .visit-counter-container {
+            position: absolute;
+            top: 15px; 
+            right: 20px; 
+            text-align: right; 
+            margin-top: 0; 
+            line-height: 1;
+        }
+        .visit-counter-label {
+            font-size: 0.7rem; 
+            color: #aaa;
+            font-weight: bold;
+            display: block; 
+        }
+        .visit-counter-container img {
+            margin-top: 5px; 
+        }
+
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 20px;
+            background: var(--bg);
+            border-bottom: 1px solid #333;
+        }
+
+        nav button {
+            padding: 8px 15px;
+            border: 1px solid var(--accent);
+            background: var(--card-bg);
+            color: var(--text);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        nav button:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        nav button.active {
+            background: var(--accent);
+            color: var(--bg);
+        }
+        
+        #paymentInfoBlock {
+            flex-grow: 1; 
+            display: flex;
+            align-items: center;
+            padding: 0 10px; 
+            background: var(--card-bg);
+            border-radius: 6px;
+            margin: 0 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: inset 0 0 5px rgba(77, 166, 255, 0.2);
+        }
+
+        .main-content {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        #radioList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+        }
+
+        .station-item {
+            background: var(--card-bg);
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            transition: border-left 0.3s;
+        }
+        .station-info { flex-grow: 1; min-width: 0; }
+        .station-info h3 { margin: 0 0 4px 0; font-size: 1.1rem; }
+        .station-info small { display: block; color: #aaa; }
+        
+        .fixed-station { border-left: 5px solid var(--accent); }
+
+        .station-actions button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .play-btn { background: var(--accent); color: var(--bg); }
+        .play-btn:hover { background: #0056b3; color: white; }
+        .link-btn { background: #333; color: var(--accent); border: 1px solid #555; }
+
+        .player-area {
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px var(--shadow);
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+            border: 1px solid var(--accent);
+        }
+        .player-area audio {
+            width: 100%;
+            max-width: 600px;
+            filter: invert(100%); 
+        }
+
+        #genresContainer {
+            margin-top: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        #genresList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        #genresList button {
+            padding: 8px 14px;
+            border-radius: 20px;
+            background: #333; 
+            border: 1px solid #555;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            color: #e0e0e0;
+        }
+        #genresList button:hover, #genresList button.active {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+        }
+        .genre-title {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        #paymentInfoDetails {
+            margin-top: 20px;
+        }
+        #searchEnginesList {
+            list-style: none;
+            padding-left: 0;
+        }
+        #searchEnginesList li {
+            background: var(--card-bg);
+            margin-bottom: 10px;
+            padding: 12px 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .donation-block {
+            margin-top: 15px; 
+            padding: 15px; 
+            border: 1px dashed var(--accent); 
+            border-radius: 8px; 
+            background: rgba(102, 187, 106, 0.1);
+        }
+        .paypal-btn {
+            display: inline-block;
+            background-color: #0070BA; 
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 10px;
+            margin-right: 10px;
+            transition: background-color 0.2s;
+        }
+        .paypal-btn:hover {
+            background-color: #005f9c;
+            text-decoration: none;
+        }
+        
+        /* NOVÝ STYL PRO UPOZORNĚNÍ NA LICENCI (VRÁCENÝ) */
+        .license-warning {
+            padding: 20px;
+            border: 2px solid #ff0000; 
+            border-radius: 8px;
+            background: rgba(255, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        .license-warning h3 {
+            color: #ff0000 !important;
+        }
+        .license-price-agreement { 
+            font-weight: bold; 
+            display: block; 
+            margin: 10px 0; 
+            padding: 5px; 
+            background: #333; 
+            border-radius: 4px; 
+            text-align: center; 
+            color: #ffcc00;
+        }
+
+
+        @media (max-width: 600px) {
+            nav { flex-direction: column; }
+            nav button { width: 100%; margin-bottom: 5px; }
+            #paymentInfoBlock { 
+                order: 10; 
+                width: 100%; 
+                margin: 5px 0; 
+                height: 40px; 
+                justify-content: center;
+            }
+            .station-item { flex-direction: column; align-items: flex-start; }
+            .station-actions { width: 100%; display: flex; gap: 5px; }
+            .station-actions button { flex-grow: 1; }
+            /* Úprava pozice počítadla na mobilu */
+            .visit-counter-container {
+                position: relative; 
+                top: 0;
+                right: 0;
+                padding-right: 0;
+                margin-top: 10px; 
+                text-align: center;
+                border-top: 1px solid var(--text); 
+                padding-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <h1>🌐 Rádio Kombinátor</h1>
+        <span class="version-status">
+            *ZKUŠEBNÍ VERZE*. Brzy bude spuštěna oficiální stránka.
+        </span>
+        <div class="visit-counter-container">
+            <span class="visit-counter-label">Globální návštěvy: </span>
+            <img src="https://hits.sh/github.com/Pludvik/radio-kombinator.svg?style=flat" alt="Návštěvy" />
+        </div>
+        
+        <p class="header-paypal">
+            <a href="https://paypal.me/PetrLudvik" target="_blank">
+                💖 Podpořte autora přes PayPal
+            </a>
+        </p>
+        </div>
+</header>
+
+<nav>
+    <button id="nav-searchEngines" onclick="selectView('searchEngines')">
+        ℹ️ Info a Podpora
+    </button>
+    
+    <button id="nav-cz" onclick="selectView('cz')">🇨🇿 Česká Rádia</button>
+    <button id="nav-world" onclick="selectView('world')">🌍 Světová Rádia</button>
+    <button id="nav-genres" onclick="selectView('genres')">🎧 CZ podle Žánru</button>
+    <button id="nav-world-genres" onclick="selectView('world-genres')">🌍 World podle Žánru</button>
+    
+    <div id="paymentInfoBlock">
+        <span style="font-weight: bold; color: #66bb6a;">
+            💖 Podpořte Autora:
+        </span>
+        <span style="font-weight: bold; margin-left: 5px;">
+            <a href="#paymentInfoDetails" id="paymentInfoLink" style="color: var(--accent); text-decoration: none;">Dobrovolný Dar</a>
+        </span>
+    </div>
+    </nav>
+
+<div class="main-content">
+
+    <div class="player-area" id="playerArea">
+        <div class="player-label" id="playerLabel">Přehrávač</div>
+        <audio id="audioPlayer" controls autoplay></audio>
+    </div>
+    
+    <div id="genresContainer">
+        <div class="genre-title" id="genresTitle">Vyberte žánr pro filtrování stanic:</div>
+        <div id="genresList"></div>
+    </div>
+    
+    <div id="paymentInfoDetails" style="display: none;"> 
+        <div class="donation-block" id="mainContentDonationBlock">
+            <h3 style="margin-top: 0; color: #66bb6a;">
+                Dobrovolný Dar / Podpora Autora
+            </h3>
+            
+            <p>
+                Tento **Rádio Kombinátor** je pro vás volně k použití. Pokud se vám líbí, používáte ho a chtěli byste podpořit jeho vývoj a údržbu, můžete poslat **dobrovolný dar** na níže uvedený účet. Každá podpora pomáhá!
+            </p>
+            <p style="font-weight: bold; margin-bottom: 0; color: var(--accent);">
+                💰 Platební instrukce pro Dar (Děkujeme za podporu!)
+            </p>
+            <ul style="list-style: none; padding-left: 15px; font-family: monospace; font-size: 1.1em; margin-bottom: 5px;">
+                <li>Číslo účtu: **1018678746/5500** (Raiffeisenbank)</li>
+                <li>Do zprávy pro příjemce uveďte: **DAR Radio Kombinátor**</li>
+            </ul>
+            <a href="https://paypal.me/PetrLudvik" target="_blank" class="paypal-btn">
+                PayPal
+            </a>
+            <span style="font-size: 0.9em; color: #ccc;">(přesměrování na paypal.me/PetrLudvik)</span>
+        </div>
+        
+        <h3 style="margin-top: 30px; color: var(--accent);">🔗 Externí Vyhledávače Rádií (Zdroj Dat)</h3>
+        <p style="color: #777; margin-top: 5px;">Pro nalezení dalších streamů použijte tyto externí zdroje:</p>
+        <ul id="searchEnginesList">
+            <li><a href="https://www.radio-browser.info" target="_blank" rel="noopener noreferrer">Radio-browser.info</a> – **Open source databáze rádií (hlavní zdroj dat pro tuto stránku)**</li>
+            <li><a href="https://radios.cz" target="_blank" rel="noopener noreferrer">Radios.cz</a> – Český katalog internetových rádií a streamů</li>
+            <li><a href="https://tunein.com" target="_blank" rel="noopener noreferrer">TuneIn.com</a> – Globální a oblíbená platforma pro streamování rádií</li>
+        </ul>
+        
+        <div class="license-warning">
+            <h3 style="margin-top: 0;">
+                🚨 UPOZORNĚNÍ K LICENCI A UŽITÍ
+            </h3>
+            <p style="font-weight: bold;">
+                Softwarové dílo "Rádio Kombinátor" je poskytováno **pouze pro osobní, studijní a nekomerční užití** ("AS IS").
+            </p>
+            <p>
+                **POZOR!** Kód a obsah smí být nahrán a veřejně sdílen na jakémkoli webu (komerčním i nekomerčním) **POUZE V PŘÍPADĚ, ŽE VLASTNÍK WEBU ZÍSKAL EXPLICITNÍ PÍSEMNÝ SOUHLAS AUTORA.** Bez tohoto souhlasu je jakékoliv veřejné sdílení zakázáno.
+            </p>
+            
+            <p style="color: red; font-weight: bold;">
+                Veškerá autorská práva zůstávají Autorovi.
+            </p>
+            
+            <p>
+                <span style="font-weight: bold;">Podmínky pro souhlas s užitím/sdílením:</span>
+                <span class="license-price-agreement">
+                    Kontaktujte autora pro získání povolení.
+                </span>
+            </p>
+            
+            <p>
+                V případě zájmu o souhlas s užitím či úpravami kódu, mě prosím kontaktujte:
+                <br>
+                <span style="font-weight: bold;">Email:</span> <a href="mailto:pludvik85@gmail.com">pludvik85@gmail.com</a>
+            </p>
+        </div>
+        </div>
+    <ul id="radioList">
+        <li>Načítám počáteční stanice...</li>
+    </ul>
+
+</div>
+
+<script>
+    const O_API_URL = "https://de1.api.radio-browser.info/json/stations";
+
+    // --- DOM Elementy (Obfuscated names) ---
+    const C_LIST_EL = document.getElementById('radioList');
+    const C_PLAYER_AREA = document.getElementById('playerArea');
+    const C_PLAYER_LABEL = document.getElementById('playerLabel');
+    const C_AUDIO_PLAYER = document.getElementById('audioPlayer');
+    const C_GENRES_CONT = document.getElementById('genresContainer');
+    const C_GENRES_LIST = document.getElementById('genresList');
+    const C_GENRES_TITLE = document.getElementById('genresTitle');
+    const C_PAYMENT_INFO_DET = document.getElementById('paymentInfoDetails');
+
+    // --- CENTRALIZOVANÝ STAV A DATA (Obfuscated names) ---
+    const C_APP_STATE = {
+        cz_st: [],
+        world_st: [],
+        view: 'searchEngines', 
+        act_genre: null, 
+    };
+
+    // --- POMOCNÉ FUNKCE (Obfuscated names) ---
+
+    function P_getFlag(CC) {
+        if (!CC || CC.length !== 2) return '';
+        const C_CODE_POINTS = CC.toUpperCase().split('').map(c => 127397 + c.charCodeAt());
+        return String.fromCodePoint(...C_CODE_POINTS);
+    }
+
+    function P_capitalize(S) {
+        if (!S || S.trim() === '') return '';
+        return S.charAt(0).toUpperCase() + S.slice(1);
+    }
+
+    // Generování položky rádia (Obfuscated)
+    function F_generateHTML(st_data, isCZ_flag = false) {
+        
+        const C_INFO = isCZ_flag ? `Česko ${P_getFlag('CZ')}` : `${st_data.country} ${P_getFlag(st_data.countrycode)}`;
+        const O_TAGS = st_data.tags ? st_data.tags.split(',').map(t => P_capitalize(t.trim())).filter(t => t.length > 0).slice(0, 3).join(', ') : 'Neznámé';
+        const NAME_DISP = st_data.name.length > 50 ? st_data.name.substring(0, 47) + '...' : st_data.name;
+        const STREAM_URL = st_data.url_resolved || st_data.url;
+
+        const BTN_DIS = STREAM_URL ? '' : 'disabled';
+        const BTN_TXT = STREAM_URL ? '▶ Přehrát' : '🔎 Hledej';
+
+        return `
+            <li class="station-item" data-name="${st_data.name}" data-country="${st_data.country}" data-tags="${st_data.tags}">
+                <div class="station-info">
+                    <h3>${NAME_DISP}</h3>
+                    <small>
+                        ${C_INFO} 
+                        ${st_data.city ? `| Město: ${st_data.city}` : ''}
+                        | Žánry: ${O_TAGS}
+                    </small>
+                </div>
+                <div class="station-actions">
+                    <button 
+                        class="play-btn" 
+                        data-url="${STREAM_URL || ''}" 
+                        data-name="${st_data.name}"
+                        onclick="${STREAM_URL ? 'F_playStation(this)' : 'alert(\`Stream pro ${st_data.name} nebyl v API nalezen. Zkuste odkaz Web.\`)'}"
+                        ${BTN_DIS}>
+                        ${BTN_TXT}
+                    </button>
+                    <a href="${st_data.homepage}" target="_blank" rel="noopener noreferrer" class="link-btn" style="${st_data.homepage ? '' : 'display:none;'}">🌐 Web</a>
+                </div>
+            </li>
+        `;
+    }
+
+    // Render seznamu stanic do DOM (Obfuscated)
+    function F_renderList(ST_ARR, isCZ_flag = false) {
+        let FINAL_ST = ST_ARR;
+        
+        if(!FINAL_ST || FINAL_ST.length === 0) {
+            C_LIST_EL.innerHTML = '<li>Nebyly nalezeny žádné stanice odpovídající filtru/výběru.</li>';
+            return;
+        }
+        C_LIST_EL.innerHTML = FINAL_ST.map(s => F_generateHTML(s, isCZ_flag)).join('');
+    }
+
+    // --- FUNKCE PRO NAČÍTÁNÍ DAT Z API (Obfuscated) ---
+
+    async function F_fetchData(EP, COUNT, FILTER_CZ = false) {
+        try {
+            const C_URL = COUNT ? `${O_API_URL}/${EP}/${COUNT}` : `${O_API_URL}/${EP}`;
+            const C_RES = await fetch(C_URL);
+            if (!C_RES.ok) throw new Error(`Selhalo získání dat z API. Status: ${C_RES.status}`);
+            let C_DATA = await C_RES.json();
+            
+            if(FILTER_CZ) {
+                C_DATA = C_DATA.filter(s => s.countrycode !== 'CZ');
+            }
+            
+            return C_DATA;
+        } catch(E) {
+            console.error("Chyba při stahování z API:", E);
+            return [];
+        }
+    }
+
+    // NAČÍTÁNÍ VŠECH CZ RÁDIÍ (Obfuscated)
+    async function F_fetchCZ() {
+        C_LIST_EL.innerHTML = '<li>⏳ Načítám **všechna** česká rádia z API Radio-Browser...</li>'; 
+        
+        const C_API_DATA = await F_fetchData('bycountrycodeexact/CZ', null);
+
+        if (C_API_DATA.length === 0) {
+            C_LIST_EL.innerHTML = '<li>⚠️ Nepodařilo se načíst data z API nebo nebyly nalezeny CZ stanice. Zkuste to později nebo zkontrolujte konzoli prohlížeče.</li>';
+            C_APP_STATE.cz_st = [];
+            return;
+        }
+
+        const VALID_ST = C_API_DATA.filter(s => s.url_resolved || s.url);
+        
+        C_APP_STATE.cz_st = VALID_ST;
+
+        if(C_APP_STATE.view === 'cz' || C_APP_STATE.view === 'genres') {
+            if(C_APP_STATE.view === 'cz') F_renderList(C_APP_STATE.cz_st, true);
+            F_generateGenreBtns(C_APP_STATE.cz_st);
+        } else {
+             C_LIST_EL.innerHTML = '<li>Data pro jinou sekci jsou načtena.</li>';
+        }
+    }
+
+    async function F_fetchWorld() {
+        C_LIST_EL.innerHTML = '<li>⏳ Načítám světová rádia (Max 8000 nejklikánějších)...</li>';
+        const C_DATA = await F_fetchData('topclick', 8000, true); 
+        
+        if (C_DATA.length === 0) {
+            C_LIST_EL.innerHTML = '<li>⚠️ Nepodařilo se načíst světová rádia z API.</li>';
+            C_APP_STATE.world_st = [];
+            return;
+        }
+
+        C_APP_STATE.world_st = C_DATA.filter(s => s.url_resolved || s.url); 
+        if(C_APP_STATE.view === 'world' || C_APP_STATE.view === 'world-genres') {
+            if(C_APP_STATE.view === 'world') F_renderList(C_APP_STATE.world_st, false);
+            F_generateGenreBtns(C_APP_STATE.world_st);
+        } else {
+            C_LIST_EL.innerHTML = '<li>Data pro jinou sekci jsou načtena.</li>';
+        }
+    }
+
+    // --- FUNKCE PRO ŽÁNRY A FILTROVÁNÍ (Obfuscated) ---
+
+    function F_generateGenreBtns(ST_ARR) {
+        let C_GENRE_MAP = new Map();
+        ST_ARR.forEach(s => {
+            if(s.tags) {
+                s.tags.split(',').forEach(t => {
+                    const TRIMMED = t.trim().toLowerCase();
+                    if(TRIMMED.length > 2 && TRIMMED.length < 20 && !/\d/.test(TRIMMED)) {
+                        C_GENRE_MAP.set(TRIMMED, (C_GENRE_MAP.get(TRIMMED) || 0) + 1);
+                    }
+                });
+            }
+        });
+        
+        const C_GENRES = Array.from(C_GENRE_MAP.keys())
+            .filter(g => C_GENRE_MAP.get(g) >= 5)
+            .sort();
+
+        C_GENRES_LIST.innerHTML = C_GENRES.map(g => 
+            `<button onclick="F_loadGenre('${g}', this)" class="${C_APP_STATE.act_genre === g ? 'active' : ''}">${P_capitalize(g)}</button>`
+        ).join('');
+    }
+    
+    function F_loadGenre(GENRE, BTN) {
+        const IS_CZ = C_APP_STATE.view === 'genres';
+        const ST_TO_FILT = IS_CZ ? C_APP_STATE.cz_st : C_APP_STATE.world_st;
+        
+        if (C_APP_STATE.act_genre === GENRE) {
+            C_APP_STATE.act_genre = null;
+            document.querySelectorAll('#genresList button').forEach(btn => btn.classList.remove('active'));
+        } else {
+            C_APP_STATE.act_genre = GENRE;
+            document.querySelectorAll('#genresList button').forEach(btn => btn.classList.remove('active'));
+            if (BTN) BTN.classList.add('active');
+        }
+
+        C_GENRES_TITLE.textContent = (IS_CZ ? `České rádia: ` : `Světová rádia: `) + (C_APP_STATE.act_genre ? `Žánr: ${P_capitalize(C_APP_STATE.act_genre)}` : `Všechny žánry`);
+        
+        if (!C_APP_STATE.act_genre) {
+             F_renderList(ST_TO_FILT, IS_CZ);
+             return;
+        }
+
+        const FILTERED = ST_TO_FILT.filter(s => 
+            s.tags && s.tags.toLowerCase().split(',').map(t => t.trim()).includes(C_APP_STATE.act_genre)
+        );
+
+        if(FILTERED.length === 0) {
+            C_LIST_EL.innerHTML = `<li>Pro žánr <strong>${P_capitalize(C_APP_STATE.act_genre)}</strong> nebyly nalezeny žádné stanice.</li>`;
+        } else {
+            F_renderList(FILTERED, IS_CZ);
+        }
+    }
+
+    // --- FUNKCE PRO PŘEHRÁVÁNÍ (Obfuscated) ---
+
+    function F_playStation(BTN_EL) {
+        let C_URL = BTN_EL.getAttribute('data-url');
+        const C_NAME = BTN_EL.getAttribute('data-name');
+        
+        // Reset a vizuální zpětná vazba
+        document.querySelectorAll('.station-actions button').forEach(btn => {
+            if (btn.classList.contains('play-btn') && btn !== BTN_EL) {
+                btn.textContent = '▶ Přehrát';
+            }
+        });
+        BTN_EL.textContent = '... Načítám ...';
+
+        // HTTPS Korekce pro GitHub Pages
+        if (C_URL && C_URL.startsWith('http://')) {
+            C_URL = C_URL.replace('http://', 'https://');
+        }
+        
+        C_PLAYER_AREA.style.display = 'block';
+        C_PLAYER_LABEL.textContent = `Příprava: ${C_NAME}`;
+
+        if (C_AUDIO_PLAYER.src !== C_URL) {
+            C_AUDIO_PLAYER.pause();
+            C_AUDIO_PLAYER.src = C_URL;
+            C_AUDIO_PLAYER.load();
+        }
+
+        C_AUDIO_PLAYER.play().then(() => {
+            C_PLAYER_LABEL.textContent = `▶ Hraje: ${C_NAME}`;
+            BTN_EL.textContent = '✔ Hraje'; // Potvrzení
+        }).catch(E => {
+            console.error("Chyba přehrávání:", E);
+            C_PLAYER_LABEL.textContent = `❌ Chyba při spuštění ${C_NAME}. Zkuste Web.`;
+            C_AUDIO_PLAYER.src = "";
+            BTN_EL.textContent = '❌ Selhalo'; // Potvrzení selhání
+        });
+    }
+
+
+    // --- FUNKCE PRO PŘEPÍNÁNÍ POHLEDŮ A TÉMA (Obfuscated) ---
+
+    async function F_selectView(V_NAME) {
+        C_APP_STATE.view = V_NAME;
+        C_APP_STATE.act_genre = null;
+        
+        // Reset vizuálního stavu
+        document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`nav-${V_NAME}`).classList.add('active');
+        C_GENRES_CONT.style.display = 'none';
+        C_PAYMENT_INFO_DET.style.display = 'none';
+        C_LIST_EL.style.display = 'grid';
+        
+        // Reset tlačítka přehrávání
+        document.querySelectorAll('.station-actions button.play-btn').forEach(btn => btn.textContent = '▶ Přehrát');
+        
+
+        switch(V_NAME) {
+            case 'cz':
+                if(C_APP_STATE.cz_st.length === 0) await F_fetchCZ();
+                else F_renderList(C_APP_STATE.cz_st, true);
+                break;
+
+            case 'world':
+                if(C_APP_STATE.world_st.length === 0) await F_fetchWorld();
+                else F_renderList(C_APP_STATE.world_st, false);
+                break;
+
+            case 'genres':
+                C_GENRES_CONT.style.display = 'block';
+                if(C_APP_STATE.cz_st.length === 0) await F_fetchCZ();
+                else {
+                    F_generateGenreBtns(C_APP_STATE.cz_st);
+                    C_LIST_EL.innerHTML = '<li>Vyberte žánr z tlačítek výše pro filtrování českých stanic.</li>';
+                }
+                break;
+
+            case 'world-genres':
+                C_GENRES_CONT.style.display = 'block';
+                if(C_APP_STATE.world_st.length === 0) await F_fetchWorld();
+                else {
+                    F_generateGenreBtns(C_APP_STATE.world_st);
+                    C_LIST_EL.innerHTML = '<li>Vyberte žánr z tlačítek výše pro filtrování světových stanic.</li>';
+                }
+                break;
+
+            case 'searchEngines':
+                C_PAYMENT_INFO_DET.style.display = 'block';
+                C_LIST_EL.style.display = 'none';
+                break;
+
+            default:
+                C_LIST_EL.innerHTML = '<li>Neznámý režim.</li>';
+                break;
+        }
+    }
+    
+    // PŮVODNÍ initializeTheme() a toggleTheme() ODSTRANĚNY/UPRAVENY
+    function F_initialize() {
+        document.getElementById('paymentInfoLink').addEventListener('click', (E) => {
+            E.preventDefault();
+            F_selectView('searchEngines');
+            window.location.hash = 'paymentInfoDetails';
+        });
+        F_selectView('searchEngines'); 
+    }
+
+    // --- INICIALIZACE ---
+
+    F_initialize();
+</script>
+
+</body>
+</html>
